@@ -1,0 +1,2174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gerenciamento de Frota</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --text-dark: #1e293b;
+            --text-gray: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }
+
+        .container-fluid {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 2rem 1.5rem;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            position: fixed;
+            height: 100vh;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .logo i {
+            font-size: 2rem;
+        }
+
+        .menu {
+            list-style: none;
+        }
+
+        .menu-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+
+        .menu-link:hover,
+        .menu-link.active {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding-left: 1.25rem;
+        }
+
+        .menu-link i {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 260px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--bg-white);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-white);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+
+        .stat-card.green {
+            background: linear-gradient(135deg, var(--secondary) 0%, #059669 100%);
+        }
+
+        .stat-card.orange {
+            background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+        }
+
+        .stat-card.red {
+            background: linear-gradient(135deg, var(--danger) 0%, #dc2626 100%);
+        }
+
+        .stat-card-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-icon {
+            position: absolute;
+            right: 1.5rem;
+            top: 1.5rem;
+            font-size: 2.5rem;
+            opacity: 0.2;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #059669;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .btn-sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        /* Tables */
+        .table-responsive {
+            overflow-x: auto;
+            border-radius: 0.75rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-white);
+        }
+
+        thead {
+            background-color: var(--bg-light);
+            border-bottom: 2px solid var(--border);
+        }
+
+        th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-dark);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+        }
+
+        tbody tr:hover {
+            background-color: var(--bg-light);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-success {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-danger {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge-info {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-white);
+            border-radius: 0.75rem;
+            box-shadow: var(--shadow-lg);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-gray);
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--text-dark);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Map Container */
+        #map {
+            width: 100%;
+            height: 400px;
+            border-radius: 0.75rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 1rem;
+            border-bottom: 2px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-gray);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+        }
+
+        .nav-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Alert */
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-danger {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .alert-warning {
+            background-color: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-online {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .status-offline {
+            background-color: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .status-maintenance {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: currentColor;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-gray);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 200px;
+                padding: 1rem;
+            }
+
+            .main-content {
+                margin-left: 200px;
+            }
+
+            .logo {
+                font-size: 1rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header-title {
+                font-size: 1.25rem;
+            }
+
+            .content {
+                padding: 1rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            th, td {
+                padding: 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .modal-content {
+                width: 95%;
+            }
+
+            .btn-group {
+                gap: 0.25rem;
+            }
+
+            .btn-sm {
+                padding: 0.4rem 0.8rem;
+                font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                width: 60px;
+                padding: 1rem 0.5rem;
+            }
+
+            .main-content {
+                margin-left: 60px;
+            }
+
+            .logo {
+                flex-direction: column;
+                font-size: 0.7rem;
+                margin-bottom: 1rem;
+            }
+
+            .menu-link {
+                justify-content: center;
+                padding: 0.75rem;
+            }
+
+            .menu-link span {
+                display: none;
+            }
+
+            .stat-value {
+                font-size: 1.75rem;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-tabs {
+                gap: 0.5rem;
+            }
+
+            .nav-tab {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            border: 3px solid rgba(37, 99, 235, 0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+
+        .mt-2 {
+            margin-top: 1rem;
+        }
+
+        .mb-2 {
+            margin-bottom: 1rem;
+        }
+
+        .p-2 {
+            padding: 1rem;
+        }
+
+        .text-center {
+            text-align: center;
+        }
+
+        .text-success {
+            color: var(--secondary);
+        }
+
+        .text-danger {
+            color: var(--danger);
+        }
+
+        .text-warning {
+            color: var(--warning);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fas fa-truck"></i>
+                <span>FleetHub</span>
+            </div>
+            <ul class="menu">
+                <li class="menu-item">
+                    <a class="menu-link active" onclick="switchTab('dashboard')">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a class="menu-link" onclick="switchTab('motos')">
+                        <i class="fas fa-motorcycle"></i>
+                        <span>Motos</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a class="menu-link" onclick="switchTab('condutores')">
+                        <i class="fas fa-users"></i>
+                        <span>Condutores</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a class="menu-link" onclick="switchTab('manutencao')">
+                        <i class="fas fa-wrench"></i>
+                        <span>Manutenção</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a class="menu-link" onclick="switchTab('combustivel')">
+                        <i class="fas fa-gas-pump"></i>
+                        <span>Combustível</span>
+                    </a>
+                </li>
+                <li class="menu-item">
+                    <a class="menu-link" onclick="switchTab('multas')">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Multas</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h1 class="header-title" id="headerTitle">Dashboard</h1>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <button class="btn btn-primary btn-sm" id="exportBtn" onclick="exportData()">
+                        <i class="fas fa-download"></i>
+                        Exportar
+                    </button>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content">
+                <!-- Dashboard Tab -->
+                <div id="dashboard-tab" class="tab-content active">
+                    <div class="dashboard-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-motorcycle"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-label">Total de Motos</div>
+                                <div class="stat-value" id="totalMotos">0</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card green">
+                            <div class="stat-icon">
+                                <i class="fas fa-circle-check"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-label">Motos Operacionais</div>
+                                <div class="stat-value" id="motosOperacionais">0</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card orange">
+                            <div class="stat-icon">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-label">Em Manutenção</div>
+                                <div class="stat-value" id="motosManutencao">0</div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card red">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-card-content">
+                                <div class="stat-label">Total de Condutores</div>
+                                <div class="stat-value" id="totalCondutores">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Mapa de Frota</div>
+                        </div>
+                        <div id="map"></div>
+                        <div id="map-legend" style="margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="status-indicator status-online"><span class="dot"></span> Online</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="status-indicator status-maintenance"><span class="dot"></span> Manutenção</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span class="status-indicator status-offline"><span class="dot"></span> Offline</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Motos com Alertas</div>
+                        </div>
+                        <div id="alertsContainer"></div>
+                    </div>
+                </div>
+
+                <!-- Motos Tab -->
+                <div id="motos-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Gerenciamento de Motos</div>
+                            <button class="btn btn-primary btn-sm" onclick="openMotoModal()">
+                                <i class="fas fa-plus"></i>
+                                Nova Moto
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="motosTable">
+                                <thead>
+                                    <tr>
+                                        <th>Placa</th>
+                                        <th>Modelo</th>
+                                        <th>Condutor</th>
+                                        <th>Status</th>
+                                        <th>Combustível</th>
+                                        <th>Km</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="motosTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-gray">Nenhuma moto cadastrada</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Condutores Tab -->
+                <div id="condutores-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Gerenciamento de Condutores</div>
+                            <button class="btn btn-primary btn-sm" onclick="openCondutorModal()">
+                                <i class="fas fa-plus"></i>
+                                Novo Condutor
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="condutoresTable">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>CNH</th>
+                                        <th>Telefone</th>
+                                        <th>Email</th>
+                                        <th>Moto Atribuída</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="condutoresTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-gray">Nenhum condutor cadastrado</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manutenção Tab -->
+                <div id="manutencao-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Controle de Manutenção</div>
+                            <button class="btn btn-primary btn-sm" onclick="openManutencaoModal()">
+                                <i class="fas fa-plus"></i>
+                                Nova Manutenção
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="manutencaoTable">
+                                <thead>
+                                    <tr>
+                                        <th>Moto</th>
+                                        <th>Tipo</th>
+                                        <th>Status</th>
+                                        <th>Data Início</th>
+                                        <th>SLA (dias)</th>
+                                        <th>Custo</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="manutencaoTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-gray">Nenhuma manutenção registrada</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combustível Tab -->
+                <div id="combustivel-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Controle de Combustível</div>
+                            <button class="btn btn-primary btn-sm" onclick="openCombustivelModal()">
+                                <i class="fas fa-plus"></i>
+                                Novo Abastecimento
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="combustivelTable">
+                                <thead>
+                                    <tr>
+                                        <th>Moto</th>
+                                        <th>Data</th>
+                                        <th>Litros</th>
+                                        <th>Custo</th>
+                                        <th>Km</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="combustivelTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center text-gray">Nenhum abastecimento registrado</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multas Tab -->
+                <div id="multas-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">Controle de Multas</div>
+                            <button class="btn btn-primary btn-sm" onclick="openMultaModal()">
+                                <i class="fas fa-plus"></i>
+                                Nova Multa
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table id="multasTable">
+                                <thead>
+                                    <tr>
+                                        <th>Moto</th>
+                                        <th>Condutor</th>
+                                        <th>Infração</th>
+                                        <th>Data</th>
+                                        <th>Valor</th>
+                                        <th>Status</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="multasTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-gray">Nenhuma multa registrada</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Moto -->
+    <div id="motoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="motoModalTitle">Nova Moto</h2>
+                <button class="modal-close" onclick="closeMotoModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Placa</label>
+                    <input type="text" id="motoPlaca" placeholder="Ex: ABC-1234" maxlength="8">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" id="motoModelo" placeholder="Ex: Honda CB 500">
+                    </div>
+                    <div class="form-group">
+                        <label>Ano</label>
+                        <input type="number" id="motoAno" placeholder="2024">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Condutor</label>
+                        <select id="motoCondutor"></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="motoStatus">
+                            <option value="online">Online</option>
+                            <option value="maintenance">Manutenção</option>
+                            <option value="offline">Offline</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Combustível Atual (%)</label>
+                        <input type="number" id="motoCombustivel" placeholder="100" min="0" max="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Km Atual</label>
+                        <input type="number" id="motoKm" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" id="motoLatitude" placeholder="-23.5505" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" id="motoLongitude" placeholder="-46.6333" step="0.0001">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeMotoModal()" style="background-color: var(--border); color: var(--text-dark);">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveMoto()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Condutor -->
+    <div id="condutorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="condutorModalTitle">Novo Condutor</h2>
+                <button class="modal-close" onclick="closeCondutorModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nome Completo</label>
+                    <input type="text" id="condutorNome" placeholder="Ex: João Silva">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>CNH</label>
+                        <input type="text" id="condutorCNH" placeholder="Ex: 12345678901">
+                    </div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="condutorCategoria">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="AB">AB</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Telefone</label>
+                        <input type="tel" id="condutorTelefone" placeholder="(11) 99999-9999">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="condutorEmail" placeholder="joao@email.com">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Endereço</label>
+                    <input type="text" id="condutorEndereco" placeholder="Rua, número, cidade">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeCondutorModal()" style="background-color: var(--border); color: var(--text-dark);">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveCondutor()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Manutenção -->
+    <div id="manutencaoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="manutencaoModalTitle">Nova Manutenção</h2>
+                <button class="modal-close" onclick="closeManutencaoModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Moto</label>
+                    <select id="manutencaoMoto"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Manutenção</label>
+                        <select id="manutencaoTipo">
+                            <option value="preventiva">Preventiva</option>
+                            <option value="corretiva">Corretiva</option>
+                            <option value="paliativa">Paliativa</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="manutencaoStatus">
+                            <option value="pronta">Pronta</option>
+                            <option value="em_servico">Em Serviço</option>
+                            <option value="cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data Início</label>
+                        <input type="date" id="manutencaoDataInicio">
+                    </div>
+                    <div class="form-group">
+                        <label>SLA (dias)</label>
+                        <input type="number" id="manutencaoSLA" placeholder="7" min="1">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="manutencaoDescricao" placeholder="Descreva o problema e ações realizadas" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Custo (R$)</label>
+                    <input type="number" id="manutencaoCusto" placeholder="0.00" step="0.01">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeManutencaoModal()" style="background-color: var(--border); color: var(--text-dark);">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveManutencao()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Combustível -->
+    <div id="combustivelModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="combustivelModalTitle">Novo Abastecimento</h2>
+                <button class="modal-close" onclick="closeCombustivelModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Moto</label>
+                    <select id="combustivelMoto"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="combustivelData">
+                    </div>
+                    <div class="form-group">
+                        <label>Km</label>
+                        <input type="number" id="combustivelKm" placeholder="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Litros</label>
+                        <input type="number" id="combustivelLitros" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Custo (R$)</label>
+                        <input type="number" id="combustivelCusto" placeholder="0.00" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Posto de Abastecimento</label>
+                    <input type="text" id="combustivelPosto" placeholder="Ex: Petrobras - Av. Paulista">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeCombustivelModal()" style="background-color: var(--border); color: var(--text-dark);">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveCombustivel()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Multa -->
+    <div id="multaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="multaModalTitle">Nova Multa</h2>
+                <button class="modal-close" onclick="closeMultaModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Moto</label>
+                    <select id="multaMoto"></select>
+                </div>
+                <div class="form-group">
+                    <label>Condutor</label>
+                    <select id="multaCondutor"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="multaData">
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Infração</label>
+                        <select id="multaTipo">
+                            <option value="velocidade">Excesso de Velocidade</option>
+                            <option value="semaforo">Sinal Vermelho</option>
+                            <option value="estacionamento">Estacionamento Irregular</option>
+                            <option value="documentacao">Documentação</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <textarea id="multaDescricao" placeholder="Detalhes da infração" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" id="multaValor" placeholder="0.00" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="multaStatus">
+                            <option value="pendente">Pendente</option>
+                            <option value="paga">Paga</option>
+                            <option value="contestada">Contestada</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeMultaModal()" style="background-color: var(--border); color: var(--text-dark);">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveMulta()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts Leaflet para Mapa -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Scripts Principais -->
+    <script>
+        // Dados globais (localStorage)
+        const DB = {
+            motos: [],
+            condutores: [],
+            manutencoes: [],
+            combustiveis: [],
+            multas: []
+        };
+
+        let mapa = null;
+        let markers = {};
+        let editingId = null;
+
+        // ==================== INICIALIZAÇÃO ====================
+        function initializeApp() {
+            loadData();
+            initializeMap();
+            loadSelectOptions();
+            updateDashboard();
+            renderAllTables();
+            setDefaultDates();
+        }
+
+        // ==================== STORAGE ====================
+        function loadData() {
+            const saved = localStorage.getItem('fleetData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                Object.assign(DB, data);
+            } else {
+                addSampleData();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('fleetData', JSON.stringify(DB));
+        }
+
+        function addSampleData() {
+            // Sample condutores
+            DB.condutores = [
+                { id: 1, nome: 'João Silva', cnh: '12345678901', categoria: 'A', telefone: '(11) 98765-4321', email: 'joao@email.com', endereco: 'Rua A, 100, São Paulo' },
+                { id: 2, nome: 'Maria Santos', cnh: '98765432101', categoria: 'AB', telefone: '(11) 91234-5678', email: 'maria@email.com', endereco: 'Rua B, 200, São Paulo' }
+            ];
+
+            // Sample motos
+            DB.motos = [
+                { id: 1, placa: 'ABC1234', modelo: 'Honda CB 500', ano: 2022, condutor: 1, status: 'online', combustivel: 85, km: 12500, latitude: -23.5505, longitude: -46.6333 },
+                { id: 2, placa: 'XYZ5678', modelo: 'Yamaha MT-07', ano: 2023, condutor: 2, status: 'maintenance', combustivel: 60, km: 8900, latitude: -23.5520, longitude: -46.6350 }
+            ];
+
+            // Sample manutencoes
+            DB.manutencoes = [
+                { id: 1, moto: 1, tipo: 'preventiva', status: 'em_servico', dataInicio: '2024-03-15', sla: 7, descricao: 'Troca de óleo e filtro', custo: 250 }
+            ];
+
+            saveData();
+        }
+
+        function loadSelectOptions() {
+            const condutorSelects = ['motoCondutor', 'multaCondutor'];
+            const motoSelects = ['manutencaoMoto', 'combustivelMoto', 'multaMoto'];
+
+            condutorSelects.forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    select.innerHTML = '<option value="">Selecione um condutor</option>';
+                    DB.condutores.forEach(c => {
+                        const option = document.createElement('option');
+                        option.value = c.id;
+                        option.textContent = c.nome;
+                        select.appendChild(option);
+                    });
+                }
+            });
+
+            motoSelects.forEach(id => {
+                const select = document.getElementById(id);
+                if (select) {
+                    select.innerHTML = '<option value="">Selecione uma moto</option>';
+                    DB.motos.forEach(m => {
+                        const option = document.createElement('option');
+                        option.value = m.id;
+                        option.textContent = `${m.placa} - ${m.modelo}`;
+                        select.appendChild(option);
+                    });
+                }
+            });
+        }
+
+        // ==================== MAPA ====================
+        function initializeMap() {
+            setTimeout(() => {
+                if (document.getElementById('map') && !mapa) {
+                    mapa = L.map('map').setView([-23.5505, -46.6333], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(mapa);
+                    updateMapMarkers();
+                }
+            }, 100);
+        }
+
+        function updateMapMarkers() {
+            if (!mapa) return;
+
+            // Remover markers antigos
+            Object.values(markers).forEach(marker => marker.remove());
+            markers = {};
+
+            // Adicionar novos markers
+            DB.motos.forEach(moto => {
+                const statusColor = moto.status === 'online' ? '#10b981' : moto.status === 'maintenance' ? '#f59e0b' : '#6b7280';
+                const statusTexto = moto.status === 'online' ? 'Online' : moto.status === 'maintenance' ? 'Manutenção' : 'Offline';
+                
+                const condutor = DB.condutores.find(c => c.id === parseInt(moto.condutor));
+                
+                const icon = L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background-color: ${statusColor}; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        <i class="fas fa-motorcycle" style="font-size: 14px;"></i>
+                    </div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                const marker = L.marker([moto.latitude, moto.longitude], { icon })
+                    .bindPopup(`<strong>${moto.placa}</strong><br>${moto.modelo}<br><strong>Status:</strong> ${statusTexto}<br><strong>Condutor:</strong> ${condutor ? condutor.nome : 'N/A'}<br><strong>Combustível:</strong> ${moto.combustivel}%<br><strong>Km:</strong> ${moto.km}`)
+                    .addTo(mapa);
+
+                markers[moto.id] = marker;
+            });
+        }
+
+        // ==================== TABS ====================
+        function switchTab(tabName) {
+            // Esconder todas as abas
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.menu-link').forEach(link => link.classList.remove('active'));
+
+            // Mostrar aba selecionada
+            const tab = document.getElementById(tabName + '-tab');
+            if (tab) {
+                tab.classList.add('active');
+            }
+
+            // Marcar link ativo
+            event.target.closest('.menu-link').classList.add('active');
+
+            // Atualizar título
+            const titles = {
+                dashboard: 'Dashboard',
+                motos: 'Gerenciamento de Motos',
+                condutores: 'Gerenciamento de Condutores',
+                manutencao: 'Controle de Manutenção',
+                combustivel: 'Controle de Combustível',
+                multas: 'Controle de Multas'
+            };
+
+            document.getElementById('headerTitle').textContent = titles[tabName] || 'Dashboard';
+
+            // Inicializar mapa se necessário
+            if (tabName === 'dashboard') {
+                setTimeout(() => {
+                    if (mapa) mapa.invalidateSize();
+                }, 100);
+            }
+        }
+
+        // ==================== DASHBOARD ====================
+        function updateDashboard() {
+            // Total de motos
+            document.getElementById('totalMotos').textContent = DB.motos.length;
+
+            // Motos operacionais
+            const operacionais = DB.motos.filter(m => m.status === 'online').length;
+            document.getElementById('motosOperacionais').textContent = operacionais;
+
+            // Motos em manutenção
+            const emManutencao = DB.motos.filter(m => m.status === 'maintenance').length;
+            document.getElementById('motosManutencao').textContent = emManutencao;
+
+            // Total de condutores
+            document.getElementById('totalCondutores').textContent = DB.condutores.length;
+
+            // Alertas
+            updateAlerts();
+        }
+
+        function updateAlerts() {
+            const container = document.getElementById('alertsContainer');
+            const alerts = [];
+
+            // Combustível baixo
+            DB.motos.forEach(moto => {
+                if (moto.combustivel < 25) {
+                    alerts.push({
+                        type: 'danger',
+                        icon: 'fa-gas-pump',
+                        message: `Moto ${moto.placa} com combustível baixo (${moto.combustivel}%)`
+                    });
+                }
+            });
+
+            // Manutenções vencidas
+            const hoje = new Date();
+            DB.manutencoes.forEach(man => {
+                if (man.status === 'em_servico') {
+                    const dataFim = new Date(man.dataInicio);
+                    dataFim.setDate(dataFim.getDate() + man.sla);
+                    if (dataFim < hoje) {
+                        alerts.push({
+                            type: 'warning',
+                            icon: 'fa-wrench',
+                            message: `Manutenção da moto ${DB.motos.find(m => m.id === man.moto)?.placa} venceu há ${Math.floor((hoje - dataFim) / (1000 * 60 * 60 * 24))} dias`
+                        });
+                    }
+                }
+            });
+
+            if (alerts.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><div class="empty-state-title">Tudo em ordem!</div></div>';
+            } else {
+                container.innerHTML = alerts.map(alert => `
+                    <div class="alert alert-${alert.type}">
+                        <i class="fas ${alert.icon}"></i>
+                        ${alert.message}
+                    </div>
+                `).join('');
+            }
+        }
+
+        // ==================== FUNÇÕES DE RENDER ====================
+        function renderAllTables() {
+            renderMotosTable();
+            renderCondutoresTable();
+            renderManutencaoTable();
+            renderCombustivelTable();
+            renderMultasTable();
+        }
+
+        function renderMotosTable() {
+            const tbody = document.getElementById('motosTableBody');
+            if (DB.motos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhuma moto cadastrada</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.motos.map(moto => {
+                const condutor = DB.condutores.find(c => c.id === parseInt(moto.condutor));
+                const statusBadge = `<span class="badge ${moto.status === 'online' ? 'badge-success' : moto.status === 'maintenance' ? 'badge-warning' : 'badge-info'}">
+                    ${moto.status === 'online' ? 'Online' : moto.status === 'maintenance' ? 'Manutenção' : 'Offline'}
+                </span>`;
+
+                return `
+                    <tr>
+                        <td><strong>${moto.placa}</strong></td>
+                        <td>${moto.modelo}</td>
+                        <td>${condutor ? condutor.nome : 'Não atribuído'}</td>
+                        <td>${statusBadge}</td>
+                        <td><strong>${moto.combustivel}%</strong></td>
+                        <td>${moto.km} km</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-primary btn-sm" onclick="editMoto(${moto.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteMoto(${moto.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCondutoresTable() {
+            const tbody = document.getElementById('condutoresTableBody');
+            if (DB.condutores.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum condutor cadastrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.condutores.map(condutor => {
+                const moto = DB.motos.find(m => m.condutor === condutor.id);
+                return `
+                    <tr>
+                        <td><strong>${condutor.nome}</strong></td>
+                        <td>${condutor.cnh}</td>
+                        <td>${condutor.telefone}</td>
+                        <td>${condutor.email}</td>
+                        <td>${moto ? moto.placa : '-'}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-primary btn-sm" onclick="editCondutor(${condutor.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteCondutor(${condutor.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderManutencaoTable() {
+            const tbody = document.getElementById('manutencaoTableBody');
+            if (DB.manutencoes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhuma manutenção registrada</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.manutencoes.map(man => {
+                const moto = DB.motos.find(m => m.id === man.moto);
+                const statusBadge = `<span class="badge ${man.status === 'pronta' ? 'badge-success' : man.status === 'em_servico' ? 'badge-warning' : 'badge-danger'}">
+                    ${man.status === 'pronta' ? 'Pronta' : man.status === 'em_servico' ? 'Em Serviço' : 'Cancelada'}
+                </span>`;
+
+                return `
+                    <tr>
+                        <td><strong>${moto ? moto.placa : 'N/A'}</strong></td>
+                        <td>${man.tipo.charAt(0).toUpperCase() + man.tipo.slice(1)}</td>
+                        <td>${statusBadge}</td>
+                        <td>${man.dataInicio}</td>
+                        <td>${man.sla} dias</td>
+                        <td>R$ ${man.custo.toFixed(2)}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-primary btn-sm" onclick="editManutencao(${man.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteManutencao(${man.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderCombustivelTable() {
+            const tbody = document.getElementById('combustivelTableBody');
+            if (DB.combustiveis.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Nenhum abastecimento registrado</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.combustiveis.map(comb => {
+                const moto = DB.motos.find(m => m.id === comb.moto);
+                return `
+                    <tr>
+                        <td><strong>${moto ? moto.placa : 'N/A'}</strong></td>
+                        <td>${comb.data}</td>
+                        <td>${comb.litros.toFixed(2)} L</td>
+                        <td>R$ ${comb.custo.toFixed(2)}</td>
+                        <td>${comb.km} km</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-primary btn-sm" onclick="editCombustivel(${comb.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteCombustivel(${comb.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderMultasTable() {
+            const tbody = document.getElementById('multasTableBody');
+            if (DB.multas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">Nenhuma multa registrada</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = DB.multas.map(multa => {
+                const moto = DB.motos.find(m => m.id === multa.moto);
+                const condutor = DB.condutores.find(c => c.id === multa.condutor);
+                const statusBadge = `<span class="badge ${multa.status === 'paga' ? 'badge-success' : multa.status === 'pendente' ? 'badge-warning' : 'badge-info'}">
+                    ${multa.status.charAt(0).toUpperCase() + multa.status.slice(1)}
+                </span>`;
+
+                return `
+                    <tr>
+                        <td><strong>${moto ? moto.placa : 'N/A'}</strong></td>
+                        <td>${condutor ? condutor.nome : 'N/A'}</td>
+                        <td>${multa.tipo.charAt(0).toUpperCase() + multa.tipo.slice(1)}</td>
+                        <td>${multa.data}</td>
+                        <td>R$ ${multa.valor.toFixed(2)}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-primary btn-sm" onclick="editMulta(${multa.id})"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteMulta(${multa.id})"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ==================== MOTOS ====================
+        function openMotoModal() {
+            editingId = null;
+            document.getElementById('motoModalTitle').textContent = 'Nova Moto';
+            document.getElementById('motoPlaca').value = '';
+            document.getElementById('motoModelo').value = '';
+            document.getElementById('motoAno').value = new Date().getFullYear();
+            document.getElementById('motoCondutor').value = '';
+            document.getElementById('motoStatus').value = 'online';
+            document.getElementById('motoCombustivel').value = '100';
+            document.getElementById('motoKm').value = '0';
+            document.getElementById('motoLatitude').value = '-23.5505';
+            document.getElementById('motoLongitude').value = '-46.6333';
+            document.getElementById('motoModal').classList.add('show');
+        }
+
+        function closeMotoModal() {
+            document.getElementById('motoModal').classList.remove('show');
+        }
+
+        function editMoto(id) {
+            const moto = DB.motos.find(m => m.id === id);
+            if (moto) {
+                editingId = id;
+                document.getElementById('motoModalTitle').textContent = 'Editar Moto';
+                document.getElementById('motoPlaca').value = moto.placa;
+                document.getElementById('motoModelo').value = moto.modelo;
+                document.getElementById('motoAno').value = moto.ano;
+                document.getElementById('motoCondutor').value = moto.condutor || '';
+                document.getElementById('motoStatus').value = moto.status;
+                document.getElementById('motoCombustivel').value = moto.combustivel;
+                document.getElementById('motoKm').value = moto.km;
+                document.getElementById('motoLatitude').value = moto.latitude;
+                document.getElementById('motoLongitude').value = moto.longitude;
+                document.getElementById('motoModal').classList.add('show');
+            }
+        }
+
+        function saveMoto() {
+            const placa = document.getElementById('motoPlaca').value.trim().toUpperCase();
+            const modelo = document.getElementById('motoModelo').value.trim();
+            const ano = parseInt(document.getElementById('motoAno').value);
+            const condutor = parseInt(document.getElementById('motoCondutor').value) || null;
+            const status = document.getElementById('motoStatus').value;
+            const combustivel = parseInt(document.getElementById('motoCombustivel').value);
+            const km = parseInt(document.getElementById('motoKm').value);
+            const latitude = parseFloat(document.getElementById('motoLatitude').value);
+            const longitude = parseFloat(document.getElementById('motoLongitude').value);
+
+            if (!placa || !modelo || !ano) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (editingId) {
+                const moto = DB.motos.find(m => m.id === editingId);
+                if (moto) {
+                    moto.placa = placa;
+                    moto.modelo = modelo;
+                    moto.ano = ano;
+                    moto.condutor = condutor;
+                    moto.status = status;
+                    moto.combustivel = combustivel;
+                    moto.km = km;
+                    moto.latitude = latitude;
+                    moto.longitude = longitude;
+                }
+            } else {
+                const novaId = Math.max(...DB.motos.map(m => m.id), 0) + 1;
+                DB.motos.push({
+                    id: novaId,
+                    placa, modelo, ano, condutor, status, combustivel, km, latitude, longitude
+                });
+            }
+
+            saveData();
+            loadSelectOptions();
+            renderAllTables();
+            updateDashboard();
+            updateMapMarkers();
+            closeMotoModal();
+            alert('Moto salva com sucesso!');
+        }
+
+        function deleteMoto(id) {
+            if (confirm('Tem certeza que deseja deletar esta moto?')) {
+                DB.motos = DB.motos.filter(m => m.id !== id);
+                DB.combustiveis = DB.combustiveis.filter(c => c.moto !== id);
+                DB.manutencoes = DB.manutencoes.filter(m => m.moto !== id);
+                saveData();
+                loadSelectOptions();
+                renderAllTables();
+                updateDashboard();
+                updateMapMarkers();
+                alert('Moto deletada com sucesso!');
+            }
+        }
+
+        // ==================== CONDUTORES ====================
+        function openCondutorModal() {
+            editingId = null;
+            document.getElementById('condutorModalTitle').textContent = 'Novo Condutor';
+            document.getElementById('condutorNome').value = '';
+            document.getElementById('condutorCNH').value = '';
+            document.getElementById('condutorCategoria').value = 'A';
+            document.getElementById('condutorTelefone').value = '';
+            document.getElementById('condutorEmail').value = '';
+            document.getElementById('condutorEndereco').value = '';
+            document.getElementById('condutorModal').classList.add('show');
+        }
+
+        function closeCondutorModal() {
+            document.getElementById('condutorModal').classList.remove('show');
+        }
+
+        function editCondutor(id) {
+            const condutor = DB.condutores.find(c => c.id === id);
+            if (condutor) {
+                editingId = id;
+                document.getElementById('condutorModalTitle').textContent = 'Editar Condutor';
+                document.getElementById('condutorNome').value = condutor.nome;
+                document.getElementById('condutorCNH').value = condutor.cnh;
+                document.getElementById('condutorCategoria').value = condutor.categoria;
+                document.getElementById('condutorTelefone').value = condutor.telefone;
+                document.getElementById('condutorEmail').value = condutor.email;
+                document.getElementById('condutorEndereco').value = condutor.endereco;
+                document.getElementById('condutorModal').classList.add('show');
+            }
+        }
+
+        function saveCondutor() {
+            const nome = document.getElementById('condutorNome').value.trim();
+            const cnh = document.getElementById('condutorCNH').value.trim();
+            const categoria = document.getElementById('condutorCategoria').value;
+            const telefone = document.getElementById('condutorTelefone').value.trim();
+            const email = document.getElementById('condutorEmail').value.trim();
+            const endereco = document.getElementById('condutorEndereco').value.trim();
+
+            if (!nome || !cnh || !telefone || !email) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (editingId) {
+                const condutor = DB.condutores.find(c => c.id === editingId);
+                if (condutor) {
+                    condutor.nome = nome;
+                    condutor.cnh = cnh;
+                    condutor.categoria = categoria;
+                    condutor.telefone = telefone;
+                    condutor.email = email;
+                    condutor.endereco = endereco;
+                }
+            } else {
+                const novaId = Math.max(...DB.condutores.map(c => c.id), 0) + 1;
+                DB.condutores.push({
+                    id: novaId,
+                    nome, cnh, categoria, telefone, email, endereco
+                });
+            }
+
+            saveData();
+            loadSelectOptions();
+            renderAllTables();
+            updateDashboard();
+            closeCondutorModal();
+            alert('Condutor salvo com sucesso!');
+        }
+
+        function deleteCondutor(id) {
+            if (confirm('Tem certeza que deseja deletar este condutor?')) {
+                DB.motos.forEach(m => {
+                    if (m.condutor === id) m.condutor = null;
+                });
+                DB.multas = DB.multas.filter(m => m.condutor !== id);
+                DB.condutores = DB.condutores.filter(c => c.id !== id);
+                saveData();
+                loadSelectOptions();
+                renderAllTables();
+                updateDashboard();
+                alert('Condutor deletado com sucesso!');
+            }
+        }
+
+        // ==================== MANUTENÇÃO ====================
+        function openManutencaoModal() {
+            editingId = null;
+            document.getElementById('manutencaoModalTitle').textContent = 'Nova Manutenção';
+            document.getElementById('manutencaoMoto').value = '';
+            document.getElementById('manutencaoTipo').value = 'preventiva';
+            document.getElementById('manutencaoStatus').value = 'em_servico';
+            document.getElementById('manutencaoDataInicio').value = new Date().toISOString().split('T')[0];
+            document.getElementById('manutencaoSLA').value = '7';
+            document.getElementById('manutencaoDescricao').value = '';
+            document.getElementById('manutencaoCusto').value = '0';
+            document.getElementById('manutencaoModal').classList.add('show');
+        }
+
+        function closeManutencaoModal() {
+            document.getElementById('manutencaoModal').classList.remove('show');
+        }
+
+        function editManutencao(id) {
+            const man = DB.manutencoes.find(m => m.id === id);
+            if (man) {
+                editingId = id;
+                document.getElementById('manutencaoModalTitle').textContent = 'Editar Manutenção';
+                document.getElementById('manutencaoMoto').value = man.moto;
+                document.getElementById('manutencaoTipo').value = man.tipo;
+                document.getElementById('manutencaoStatus').value = man.status;
+                document.getElementById('manutencaoDataInicio').value = man.dataInicio;
+                document.getElementById('manutencaoSLA').value = man.sla;
+                document.getElementById('manutencaoDescricao').value = man.descricao;
+                document.getElementById('manutencaoCusto').value = man.custo;
+                document.getElementById('manutencaoModal').classList.add('show');
+            }
+        }
+
+        function saveManutencao() {
+            const moto = parseInt(document.getElementById('manutencaoMoto').value);
+            const tipo = document.getElementById('manutencaoTipo').value;
+            const status = document.getElementById('manutencaoStatus').value;
+            const dataInicio = document.getElementById('manutencaoDataInicio').value;
+            const sla = parseInt(document.getElementById('manutencaoSLA').value);
+            const descricao = document.getElementById('manutencaoDescricao').value.trim();
+            const custo = parseFloat(document.getElementById('manutencaoCusto').value) || 0;
+
+            if (!moto || !dataInicio || !sla) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (editingId) {
+                const man = DB.manutencoes.find(m => m.id === editingId);
+                if (man) {
+                    man.moto = moto;
+                    man.tipo = tipo;
+                    man.status = status;
+                    man.dataInicio = dataInicio;
+                    man.sla = sla;
+                    man.descricao = descricao;
+                    man.custo = custo;
+                }
+            } else {
+                const novaId = Math.max(...DB.manutencoes.map(m => m.id), 0) + 1;
+                DB.manutencoes.push({
+                    id: novaId,
+                    moto, tipo, status, dataInicio, sla, descricao, custo
+                });
+            }
+
+            saveData();
+            renderAllTables();
+            updateDashboard();
+            closeManutencaoModal();
+            alert('Manutenção salva com sucesso!');
+        }
+
+        function deleteManutencao(id) {
+            if (confirm('Tem certeza que deseja deletar esta manutenção?')) {
+                DB.manutencoes = DB.manutencoes.filter(m => m.id !== id);
+                saveData();
+                renderAllTables();
+                updateDashboard();
+                alert('Manutenção deletada com sucesso!');
+            }
+        }
+
+        // ==================== COMBUSTÍVEL ====================
+        function openCombustivelModal() {
+            editingId = null;
+            document.getElementById('combustivelModalTitle').textContent = 'Novo Abastecimento';
+            document.getElementById('combustivelMoto').value = '';
+            document.getElementById('combustivelData').value = new Date().toISOString().split('T')[0];
+            document.getElementById('combustivelKm').value = '';
+            document.getElementById('combustivelLitros').value = '';
+            document.getElementById('combustivelCusto').value = '';
+            document.getElementById('combustivelPosto').value = '';
+            document.getElementById('combustivelModal').classList.add('show');
+        }
+
+        function closeCombustivelModal() {
+            document.getElementById('combustivelModal').classList.remove('show');
+        }
+
+        function editCombustivel(id) {
+            const comb = DB.combustiveis.find(c => c.id === id);
+            if (comb) {
+                editingId = id;
+                document.getElementById('combustivelModalTitle').textContent = 'Editar Abastecimento';
+                document.getElementById('combustivelMoto').value = comb.moto;
+                document.getElementById('combustivelData').value = comb.data;
+                document.getElementById('combustivelKm').value = comb.km;
+                document.getElementById('combustivelLitros').value = comb.litros;
+                document.getElementById('combustivelCusto').value = comb.custo;
+                document.getElementById('combustivelPosto').value = comb.posto;
+                document.getElementById('combustivelModal').classList.add('show');
+            }
+        }
+
+        function saveCombustivel() {
+            const moto = parseInt(document.getElementById('combustivelMoto').value);
+            const data = document.getElementById('combustivelData').value;
+            const km = parseInt(document.getElementById('combustivelKm').value);
+            const litros = parseFloat(document.getElementById('combustivelLitros').value);
+            const custo = parseFloat(document.getElementById('combustivelCusto').value);
+            const posto = document.getElementById('combustivelPosto').value.trim();
+
+            if (!moto || !data || !km || !litros || !custo) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (editingId) {
+                const comb = DB.combustiveis.find(c => c.id === editingId);
+                if (comb) {
+                    comb.moto = moto;
+                    comb.data = data;
+                    comb.km = km;
+                    comb.litros = litros;
+                    comb.custo = custo;
+                    comb.posto = posto;
+                }
+            } else {
+                const novaId = Math.max(...DB.combustiveis.map(c => c.id), 0) + 1;
+                DB.combustiveis.push({
+                    id: novaId,
+                    moto, data, km, litros, custo, posto
+                });
+            }
+
+            saveData();
+            renderAllTables();
+            closeCombustivelModal();
+            alert('Abastecimento salvo com sucesso!');
+        }
+
+        function deleteCombustivel(id) {
+            if (confirm('Tem certeza que deseja deletar este registro?')) {
+                DB.combustiveis = DB.combustiveis.filter(c => c.id !== id);
+                saveData();
+                renderAllTables();
+                alert('Abastecimento deletado com sucesso!');
+            }
+        }
+
+        // ==================== MULTAS ====================
+        function openMultaModal() {
+            editingId = null;
+            document.getElementById('multaModalTitle').textContent = 'Nova Multa';
+            document.getElementById('multaMoto').value = '';
+            document.getElementById('multaCondutor').value = '';
+            document.getElementById('multaData').value = new Date().toISOString().split('T')[0];
+            document.getElementById('multaTipo').value = 'velocidade';
+            document.getElementById('multaDescricao').value = '';
+            document.getElementById('multaValor').value = '';
+            document.getElementById('multaStatus').value = 'pendente';
+            document.getElementById('multaModal').classList.add('show');
+        }
+
+        function closeMultaModal() {
+            document.getElementById('multaModal').classList.remove('show');
+        }
+
+        function editMulta(id) {
+            const multa = DB.multas.find(m => m.id === id);
+            if (multa) {
+                editingId = id;
+                document.getElementById('multaModalTitle').textContent = 'Editar Multa';
+                document.getElementById('multaMoto').value = multa.moto;
+                document.getElementById('multaCondutor').value = multa.condutor;
+                document.getElementById('multaData').value = multa.data;
+                document.getElementById('multaTipo').value = multa.tipo;
+                document.getElementById('multaDescricao').value = multa.descricao;
+                document.getElementById('multaValor').value = multa.valor;
+                document.getElementById('multaStatus').value = multa.status;
+                document.getElementById('multaModal').classList.add('show');
+            }
+        }
+
+        function saveMulta() {
+            const moto = parseInt(document.getElementById('multaMoto').value);
+            const condutor = parseInt(document.getElementById('multaCondutor').value);
+            const data = document.getElementById('multaData').value;
+            const tipo = document.getElementById('multaTipo').value;
+            const descricao = document.getElementById('multaDescricao').value.trim();
+            const valor = parseFloat(document.getElementById('multaValor').value);
+            const status = document.getElementById('multaStatus').value;
+
+            if (!moto || !condutor || !data || !valor) {
+                alert('Por favor, preencha todos os campos obrigatórios');
+                return;
+            }
+
+            if (editingId) {
+                const multa = DB.multas.find(m => m.id === editingId);
+                if (multa) {
+                    multa.moto = moto;
+                    multa.condutor = condutor;
+                    multa.data = data;
+                    multa.tipo = tipo;
+                    multa.descricao = descricao;
+                    multa.valor = valor;
+                    multa.status = status;
+                }
+            } else {
+                const novaId = Math.max(...DB.multas.map(m => m.id), 0) + 1;
+                DB.multas.push({
+                    id: novaId,
+                    moto, condutor, data, tipo, descricao, valor, status
+                });
+            }
+
+            saveData();
+            renderAllTables();
+            closeMultaModal();
+            alert('Multa salva com sucesso!');
+        }
+
+        function deleteMulta(id) {
+            if (confirm('Tem certeza que deseja deletar esta multa?')) {
+                DB.multas = DB.multas.filter(m => m.id !== id);
+                saveData();
+                renderAllTables();
+                alert('Multa deletada com sucesso!');
+            }
+        }
+
+        // ==================== UTILIDADES ====================
+        function setDefaultDates() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('manutencaoDataInicio').value = today;
+            document.getElementById('combustivelData').value = today;
+            document.getElementById('multaData').value = today;
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify(DB, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `frota-dados-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        }
+
+        // Iniciar app
+        window.addEventListener('load', initializeApp);
+    </script>
+</body>
+</html>
