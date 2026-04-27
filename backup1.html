@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoFleet — Sistema de Gestão de Frotas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg: #0a0d14;
+  --surface: #111520;
+  --surface2: #161c2d;
+  --surface3: #1e2640;
+  --border: #2a3356;
+  --accent: #f97316;
+  --accent2: #fb923c;
+  --accent-glow: rgba(249,115,22,0.2);
+  --blue: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --yellow: #eab308;
+  --purple: #a855f7;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+/* LOGIN */
+#login-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.login-bg {
+  position: absolute; inset: 0; overflow: hidden;
+}
+.login-bg::before {
+  content: '';
+  position: absolute; width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%);
+  top: -100px; left: -100px; border-radius: 50%;
+}
+.login-bg::after {
+  content: '';
+  position: absolute; width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, transparent 70%);
+  bottom: -50px; right: 100px; border-radius: 50%;
+}
+.login-card {
+  position: relative; z-index: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 40px;
+  width: 400px;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+}
+.login-logo {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
+}
+.login-logo .icon {
+  width: 48px; height: 48px;
+  background: var(--accent);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+}
+.login-logo h1 { font-size: 24px; color: var(--text); }
+.login-logo span { font-size: 13px; color: var(--text3); font-family: 'DM Sans', sans-serif; font-weight: 400; }
+.login-field { margin-bottom: 16px; }
+.login-field label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; font-weight: 500; }
+.login-field input {
+  width: 100%; padding: 12px 16px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif;
+  transition: border-color .2s;
+}
+.login-field input:focus { outline: none; border-color: var(--accent); }
+.btn-login {
+  width: 100%; padding: 14px;
+  background: var(--accent); border: none; border-radius: var(--radius-sm);
+  color: white; font-size: 15px; font-weight: 600; font-family: 'Syne', sans-serif;
+  cursor: pointer; transition: background .2s, transform .1s;
+  margin-top: 8px;
+}
+.btn-login:hover { background: var(--accent2); }
+.btn-login:active { transform: scale(0.98); }
+.login-error { color: var(--red); font-size: 13px; margin-top: 8px; display: none; }
+
+/* APP SHELL */
+#app { display: none; height: 100vh; flex-direction: column; }
+.topbar {
+  height: 60px; background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.logo-sm { width: 36px; height: 36px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.topbar h1 { font-size: 18px; letter-spacing: -0.5px; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.user-badge { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font-size: 13px; color: var(--text2); }
+.btn-logout { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 6px 14px; color: var(--text2); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all .2s; }
+.btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+.main-layout { display: flex; flex: 1; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 16px 0; flex-shrink: 0;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 20px; cursor: pointer; transition: all .2s;
+  font-size: 14px; font-weight: 500; color: var(--text2);
+  border-left: 3px solid transparent;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-glow); color: var(--accent); border-left-color: var(--accent); }
+.nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+/* CONTENT */
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* SECTION HEADER */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.section-header h2 { font-size: 22px; letter-spacing: -0.5px; }
+.section-header p { font-size: 13px; color: var(--text3); margin-top: 2px; }
+
+/* CARDS */
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+}
+.card-title { font-size: 13px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+
+/* STATS GRID */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px;
+  position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.stat-card.green::before { background: var(--green); }
+.stat-card.red::before { background: var(--red); }
+.stat-card.yellow::before { background: var(--yellow); }
+.stat-card.blue::before { background: var(--blue); }
+.stat-card.purple::before { background: var(--purple); }
+.stat-number { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 700; margin: 8px 0 4px; }
+.stat-label { font-size: 13px; color: var(--text2); }
+.stat-icon { font-size: 32px; position: absolute; right: 16px; top: 16px; opacity: 0.2; }
+.stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* FORMS */
+.form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-group label { font-size: 13px; color: var(--text2); font-weight: 500; }
+.form-group input, .form-group select, .form-group textarea {
+  padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif;
+  transition: border-color .2s; width: 100%;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.form-group select option { background: var(--surface2); }
+.form-group textarea { resize: vertical; min-height: 80px; }
+
+/* BUTTONS */
+.btn {
+  padding: 10px 20px; border-radius: var(--radius-sm); border: none;
+  font-size: 14px; font-weight: 600; font-family: 'Syne', sans-serif;
+  cursor: pointer; transition: all .2s; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.btn-danger { background: rgba(239,68,68,0.1); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-edit { background: rgba(59,130,246,0.1); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
+.btn-edit:hover { background: rgba(59,130,246,0.2); }
+
+/* TABLE */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+td { padding: 12px 14px; border-bottom: 1px solid rgba(42,51,86,0.5); color: var(--text2); vertical-align: middle; }
+tr:hover td { background: var(--surface2); color: var(--text); }
+tr:last-child td { border-bottom: none; }
+
+/* BADGES */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+}
+.badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+.badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.badge-blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+.badge-purple { background: rgba(168,85,247,0.15); color: var(--purple); }
+.badge-gray { background: rgba(100,116,139,0.15); color: var(--text3); }
+.badge-orange { background: rgba(249,115,22,0.15); color: var(--accent); }
+
+/* MAP */
+#map-container { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+#brazil-map { width: 100%; display: block; }
+.map-tooltip {
+  position: absolute; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px; min-width: 280px; z-index: 10;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5); pointer-events: none; display: none;
+}
+.map-tooltip h4 { font-size: 15px; color: var(--accent); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.tooltip-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+.tooltip-row span:first-child { color: var(--text3); }
+.tooltip-row span:last-child { color: var(--text); font-weight: 500; }
+.map-dot { cursor: pointer; transition: r .2s, opacity .2s; }
+.map-dot:hover { opacity: 0.8; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 500;
+  display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 28px; max-width: 700px; width: 95%; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.modal-header h3 { font-size: 18px; }
+.modal-close { background: none; border: none; color: var(--text3); font-size: 22px; cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background .2s; }
+.modal-close:hover { background: var(--surface2); color: var(--text); }
+
+/* SLA indicator */
+.sla-bar { background: var(--surface3); border-radius: 20px; height: 6px; margin-top: 6px; overflow: hidden; }
+.sla-fill { height: 100%; border-radius: 20px; transition: width .3s; }
+.sla-ok .sla-fill { background: var(--green); }
+.sla-warn .sla-fill { background: var(--yellow); }
+.sla-crit .sla-fill { background: var(--red); }
+
+/* Maint history */
+.hist-item { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 10px; }
+.hist-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.hist-header strong { font-size: 14px; color: var(--text); }
+.hist-items-list { font-size: 13px; color: var(--text2); }
+.hist-items-list .hi { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(42,51,86,0.5); }
+.hist-total { display: flex; justify-content: space-between; margin-top: 6px; font-weight: 600; font-size: 14px; color: var(--accent); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.empty-state { text-align: center; padding: 40px; color: var(--text3); font-size: 14px; }
+.empty-state .ei { font-size: 40px; margin-bottom: 8px; }
+.search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+.search-bar input { flex: 1; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif; }
+.search-bar input:focus { outline: none; border-color: var(--accent); }
+.actions-col { display: flex; gap: 6px; }
+
+.tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+/* Map legend */
+.map-legend { display: flex; gap: 16px; padding: 12px 16px; background: var(--surface2); border-top: 1px solid var(--border); flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+/* Leaflet custom dark */
+#leaflet-map { height: 520px; width: 100%; border-radius: var(--radius) var(--radius) 0 0; }
+.leaflet-container { background: #0d1117 !important; font-family: 'DM Sans', sans-serif; }
+.leaflet-tile { filter: brightness(0.55) saturate(0.5) hue-rotate(200deg); }
+.leaflet-popup-content-wrapper {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+}
+.leaflet-popup-tip { background: var(--surface2); }
+.leaflet-popup-content { margin: 14px 16px; min-width: 220px; }
+.leaflet-popup-content h4 { font-family:'Syne',sans-serif; font-size:15px; color:var(--accent); margin-bottom:10px; border-bottom:1px solid var(--border); padding-bottom:8px; }
+.leaflet-popup-content .pr { display:flex; justify-content:space-between; gap:12px; margin-bottom:5px; font-size:13px; }
+.leaflet-popup-content .pr span:first-child { color:var(--text3); }
+.leaflet-popup-content .pr span:last-child { color:var(--text); font-weight:500; }
+.leaflet-control-zoom a { background: var(--surface2) !important; color: var(--text) !important; border-color: var(--border) !important; }
+.leaflet-control-zoom a:hover { background: var(--surface3) !important; }
+.leaflet-bar { border-color: var(--border) !important; }
+.leaflet-control-attribution { background: rgba(17,21,32,0.8) !important; color: var(--text3) !important; font-size: 10px; }
+.leaflet-control-attribution a { color: var(--text3) !important; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-bg"></div>
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="icon">🏍️</div>
+      <div>
+        <h1>MotoFleet</h1>
+        <span>Sistema de Gestão de Frotas</span>
+      </div>
+    </div>
+    <div class="login-field">
+      <label>Login</label>
+      <input type="text" id="login-user" placeholder="admin" value="admin">
+    </div>
+    <div class="login-field">
+      <label>Senha</label>
+      <input type="password" id="login-pass" placeholder="••••••••" value="admin123">
+    </div>
+    <div class="login-error" id="login-error">Usuário ou senha inválidos.</div>
+    <button class="btn-login" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;flex-direction:column;height:100vh;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo-sm">🏍️</div>
+      <h1>MotoFleet</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="user-badge">👤 admin</div>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+  </div>
+  <div class="main-layout">
+    <div class="sidebar">
+      <div class="nav-item active" onclick="switchTab('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+      <div class="nav-item" onclick="switchTab('mapa')"><span class="nav-icon">🗺️</span> Mapa</div>
+      <div class="nav-item" onclick="switchTab('condutores')"><span class="nav-icon">👤</span> Condutores</div>
+      <div class="nav-item" onclick="switchTab('motos')"><span class="nav-icon">🏍️</span> Motos</div>
+      <div class="nav-item" onclick="switchTab('agendamentos')"><span class="nav-icon">📅</span> Agendamentos</div>
+      <div class="nav-item" onclick="switchTab('manutencao')"><span class="nav-icon">🔧</span> Manutenção</div>
+    </div>
+    <div class="content">
+      <!-- DASHBOARD -->
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="section-header">
+          <div><h2>Dashboard</h2><p>Visão geral da frota em tempo real</p></div>
+          <button class="btn btn-secondary" onclick="updateDashboard()">🔄 Atualizar</button>
+        </div>
+        <div class="stats-grid" id="stats-grid"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-title">Motos Paradas — SLA de Indisponibilidade</div>
+            <div id="sla-list" style="margin-top:12px"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Manutenções em Andamento</div>
+            <div id="maint-active-list" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAPA -->
+      <div class="tab-content" id="tab-mapa">
+        <div class="section-header">
+          <div><h2>Mapa Interativo</h2><p>Localização das motos por região</p></div>
+        </div>
+        <div id="map-container" style="border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);">
+          <div id="leaflet-map"></div>
+          <div class="map-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Ativa</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div> Em Manutenção</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Parada</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div> Reserva</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONDUTORES -->
+      <div class="tab-content" id="tab-condutores">
+        <div class="section-header">
+          <div><h2>Condutores</h2><p>Cadastro e gestão de motoristas</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-condutor')">+ Novo Condutor</button>
+        </div>
+        <div class="card">
+          <div class="search-bar">
+            <input type="text" id="search-condutor" placeholder="Buscar por nome, CPF ou matrícula..." oninput="renderCondutores()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Nome</th><th>CPF</th><th>CNH</th><th>Matrícula</th><th>Admissão</th><th>Tel</th><th>Ações</th></tr></thead>
+              <tbody id="tb-condutores"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOTOS -->
+      <div class="tab-content" id="tab-motos">
+        <div class="section-header">
+          <div><h2>Motos</h2><p>Cadastro e vinculação de veículos</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-moto')">+ Nova Moto</button>
+        </div>
+        <div class="card">
+          <div class="search-bar">
+            <input type="text" id="search-moto" placeholder="Buscar por placa, modelo ou condutor..." oninput="renderMotos()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Placa</th><th>Modelo</th><th>Locadora</th><th>Condutor</th><th>Retirada</th><th>Devolução</th><th>KM</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="tb-motos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- AGENDAMENTOS -->
+      <div class="tab-content" id="tab-agendamentos">
+        <div class="section-header">
+          <div><h2>Agendamentos</h2><p>Gestão de serviços e SLA</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-agendamento')">+ Novo Agendamento</button>
+        </div>
+        <div class="stats-grid" id="agenda-stats"></div>
+        <div class="card" style="margin-top:0">
+          <div class="search-bar">
+            <input type="text" id="search-agenda" placeholder="Buscar por placa ou condutor..." oninput="renderAgendamentos()">
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Placa</th><th>Condutor</th><th>Tipo</th><th>Solicitação</th><th>Agendamento</th><th>Prazo</th><th>Conclusão</th><th>SLA</th><th>Status</th><th>Ações</th></tr></thead>
+              <tbody id="tb-agendamentos"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- MANUTENÇÃO -->
+      <div class="tab-content" id="tab-manutencao">
+        <div class="section-header">
+          <div><h2>Manutenção</h2><p>Registro de peças, serviços e histórico</p></div>
+          <button class="btn btn-primary" onclick="openModal('modal-manutencao')">+ Registro de Manutenção</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="card">
+            <div class="card-title">Buscar Histórico por Placa</div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <input type="text" id="hist-placa" class="form-group" style="flex:1;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;" placeholder="Ex: ABC1234" oninput="renderHistorico()">
+            </div>
+            <div id="hist-list" style="margin-top:16px"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Últimas Manutenções</div>
+            <div id="recent-maint" style="margin-top:12px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONDUTOR -->
+<div class="modal-overlay" id="modal-condutor">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-condutor-title">Novo Condutor</h3>
+      <button class="modal-close" onclick="closeModal('modal-condutor')">✕</button>
+    </div>
+    <input type="hidden" id="c-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Nome Completo*</label><input type="text" id="c-nome" placeholder="Nome do condutor"></div>
+      <div class="form-group"><label>CPF*</label><input type="text" id="c-cpf" placeholder="000.000.000-00" oninput="maskCPF(this)"></div>
+      <div class="form-group"><label>CNH (Número)</label><input type="text" id="c-cnh" placeholder="N° da habilitação"></div>
+      <div class="form-group"><label>Matrícula*</label><input type="text" id="c-matricula" placeholder="Ex: MAT001"></div>
+      <div class="form-group"><label>Data de Admissão</label><input type="date" id="c-admissao"></div>
+      <div class="form-group"><label>Telefone</label><input type="text" id="c-tel" placeholder="(00) 00000-0000" oninput="maskPhone(this)"></div>
+      <div class="form-group"><label>E-mail</label><input type="email" id="c-email" placeholder="email@exemplo.com"></div>
+      <div class="form-group full"><label>Endereço</label><input type="text" id="c-endereco" placeholder="Rua, número, bairro, cidade - UF"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal('modal-condutor')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCondutor()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOTO -->
+<div class="modal-overlay" id="modal-moto">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-moto-title">Nova Moto</h3>
+      <button class="modal-close" onclick="closeModal('modal-moto')">✕</button>
+    </div>
+    <input type="hidden" id="m-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Placa*</label><input type="text" id="m-placa" placeholder="ABC1D23" oninput="this.value=this.value.toUpperCase()"></div>
+      <div class="form-group"><label>Modelo*</label><input type="text" id="m-modelo" placeholder="Ex: Honda CG 160"></div>
+      <div class="form-group"><label>Locadora</label><input type="text" id="m-locadora" placeholder="Nome da locadora"></div>
+      <div class="form-group"><label>Matrícula do Condutor</label>
+        <select id="m-matricula"><option value="">-- Selecionar --</option></select>
+      </div>
+      <div class="form-group"><label>Data de Retirada</label><input type="date" id="m-retirada"></div>
+      <div class="form-group"><label>Data de Devolução</label><input type="date" id="m-devolucao"></div>
+      <div class="form-group"><label>KM Atual</label><input type="number" id="m-km" placeholder="0"></div>
+      <div class="form-group"><label>Última Manutenção (KM)</label><input type="number" id="m-ultima-manut" placeholder="0"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="m-status">
+          <option value="ativa">Ativa</option>
+          <option value="parada">Parada</option>
+          <option value="manutencao">Em Manutenção</option>
+          <option value="reserva">Reserva</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Região / Cidade</label><input type="text" id="m-regiao" placeholder="Ex: São Paulo - SP"></div>
+      <div class="form-group full"><label>Observações</label><textarea id="m-obs" placeholder="Observações gerais sobre a moto..."></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal('modal-moto')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMoto()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGENDAMENTO -->
+<div class="modal-overlay" id="modal-agendamento">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-agenda-title">Novo Agendamento</h3>
+      <button class="modal-close" onclick="closeModal('modal-agendamento')">✕</button>
+    </div>
+    <input type="hidden" id="ag-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Placa*</label>
+        <select id="ag-placa" onchange="onAgendaPlaca()"><option value="">-- Selecionar Placa --</option></select>
+      </div>
+      <div class="form-group"><label>Condutor</label><input type="text" id="ag-condutor" readonly placeholder="Preenchido automaticamente" style="opacity:.7"></div>
+      <div class="form-group"><label>Tipo de Serviço*</label>
+        <select id="ag-tipo">
+          <option value="manutencao">Manutenção</option>
+          <option value="guincho">Guincho</option>
+          <option value="revisao">Revisão</option>
+          <option value="sinistro">Sinistro</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Data de Solicitação</label><input type="date" id="ag-solicitacao"></div>
+      <div class="form-group"><label>Data de Agendamento</label><input type="date" id="ag-agendamento"></div>
+      <div class="form-group"><label>Prazo de Finalização</label><input type="date" id="ag-prazo"></div>
+      <div class="form-group"><label>Data de Conclusão</label><input type="date" id="ag-conclusao"></div>
+      <div class="form-group full"><label>Observações</label><textarea id="ag-obs" placeholder="Detalhes do serviço..."></textarea></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal('modal-agendamento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAgendamento()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MANUTENÇÃO -->
+<div class="modal-overlay" id="modal-manutencao">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3 id="modal-manut-title">Registro de Manutenção</h3>
+      <button class="modal-close" onclick="closeModal('modal-manutencao')">✕</button>
+    </div>
+    <input type="hidden" id="mn-id">
+    <div class="form-grid" style="margin-bottom:16px">
+      <div class="form-group"><label>Placa*</label>
+        <select id="mn-placa" onchange="onManutPlaca()"><option value="">-- Selecionar Placa --</option></select>
+      </div>
+      <div class="form-group"><label>Condutor</label><input type="text" id="mn-condutor" readonly style="opacity:.7"></div>
+      <div class="form-group"><label>Data</label><input type="date" id="mn-data"></div>
+      <div class="form-group"><label>KM na Manutenção</label><input type="number" id="mn-km" placeholder="0"></div>
+    </div>
+    <div class="card-title" style="margin-bottom:10px">Itens / Serviços</div>
+    <div id="mn-itens-list"></div>
+    <button class="btn btn-secondary btn-sm" style="margin-bottom:16px" onclick="addManutItem()">+ Adicionar Item</button>
+    <div style="display:flex;justify-content:flex-end;align-items:center;gap:16px">
+      <span style="font-size:15px;color:var(--text2)">Total: <strong id="mn-total" style="color:var(--accent);font-size:18px">R$ 0,00</strong></span>
+    </div>
+    <div class="form-group full" style="margin-top:12px"><label>Observações</label><textarea id="mn-obs" placeholder="Observações da manutenção..."></textarea></div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeModal('modal-manutencao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveManutencao()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========================
+// DATA STORAGE
+// ========================
+const KEYS = { condutores:'mf_condutores', motos:'mf_motos', agendamentos:'mf_agendamentos', manutencoes:'mf_manutencoes' };
+let db = { condutores:[], motos:[], agendamentos:[], manutencoes:[] };
+let editingManutItems = [];
+
+function load() {
+  for(const k in KEYS){ try{ db[k] = JSON.parse(localStorage.getItem(KEYS[k]))||[]; }catch(e){ db[k]=[]; } }
+}
+function save(key){ localStorage.setItem(KEYS[key], JSON.stringify(db[key])); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+// ========================
+// AUTH
+// ========================
+function doLogin(){
+  const u=document.getElementById('login-user').value;
+  const p=document.getElementById('login-pass').value;
+  if(u==='admin'&&p==='admin123'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    init();
+  } else {
+    document.getElementById('login-error').style.display='block';
+  }
+}
+function logout(){ document.getElementById('login-screen').style.display='flex'; document.getElementById('app').style.display='none'; }
+document.getElementById('login-pass').addEventListener('keydown',e=>{ if(e.key==='Enter')doLogin(); });
+
+// ========================
+// NAV
+// ========================
+function switchTab(tab){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if(tab==='dashboard')updateDashboard();
+  if(tab==='mapa')renderMap();
+  if(tab==='condutores')renderCondutores();
+  if(tab==='motos')renderMotos();
+  if(tab==='agendamentos'){renderAgendamentos();renderAgendaStats();}
+  if(tab==='manutencao'){renderHistorico();renderRecentMaint();}
+}
+
+// ========================
+// MODALS
+// ========================
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click',e=>{ if(e.target===m)m.classList.remove('open'); });
+});
+
+// ========================
+// MASKS
+// ========================
+function maskCPF(el){
+  let v=el.value.replace(/\D/g,'');
+  v=v.replace(/(\d{3})(\d)/,'$1.$2');
+  v=v.replace(/(\d{3})(\d)/,'$1.$2');
+  v=v.replace(/(\d{3})(\d{1,2})$/,'$1-$2');
+  el.value=v;
+}
+function maskPhone(el){
+  let v=el.value.replace(/\D/g,'');
+  v=v.replace(/^(\d{2})(\d)/,'($1) $2');
+  v=v.replace(/(\d{5})(\d)/,'$1-$2');
+  el.value=v;
+}
+function fmtBRL(n){ return 'R$ '+parseFloat(n||0).toFixed(2).replace('.',','); }
+
+// ========================
+// CONDUTORES
+// ========================
+function openNewCondutor(){
+  clearCondutor();
+  document.getElementById('modal-condutor-title').textContent='Novo Condutor';
+  openModal('modal-condutor');
+}
+function clearCondutor(){
+  ['c-id','c-nome','c-cpf','c-cnh','c-matricula','c-admissao','c-tel','c-email','c-endereco'].forEach(id=>document.getElementById(id).value='');
+}
+function saveCondutor(){
+  const nome=document.getElementById('c-nome').value.trim();
+  const mat=document.getElementById('c-matricula').value.trim();
+  if(!nome||!mat){alert('Nome e Matrícula são obrigatórios.');return;}
+  const id=document.getElementById('c-id').value||uid();
+  const obj={id,nome,cpf:document.getElementById('c-cpf').value,cnh:document.getElementById('c-cnh').value,matricula:mat,admissao:document.getElementById('c-admissao').value,tel:document.getElementById('c-tel').value,email:document.getElementById('c-email').value,endereco:document.getElementById('c-endereco').value};
+  const idx=db.condutores.findIndex(c=>c.id===id);
+  if(idx>=0)db.condutores[idx]=obj; else db.condutores.push(obj);
+  save('condutores');
+  closeModal('modal-condutor');
+  renderCondutores();
+}
+function editCondutor(id){
+  const c=db.condutores.find(x=>x.id===id);
+  if(!c)return;
+  document.getElementById('modal-condutor-title').textContent='Editar Condutor';
+  document.getElementById('c-id').value=c.id;
+  document.getElementById('c-nome').value=c.nome;
+  document.getElementById('c-cpf').value=c.cpf;
+  document.getElementById('c-cnh').value=c.cnh;
+  document.getElementById('c-matricula').value=c.matricula;
+  document.getElementById('c-admissao').value=c.admissao;
+  document.getElementById('c-tel').value=c.tel;
+  document.getElementById('c-email').value=c.email;
+  document.getElementById('c-endereco').value=c.endereco;
+  openModal('modal-condutor');
+}
+function deleteCondutor(id){ if(confirm('Excluir este condutor?')){ db.condutores=db.condutores.filter(c=>c.id!==id); save('condutores'); renderCondutores(); } }
+function renderCondutores(){
+  const q=(document.getElementById('search-condutor').value||'').toLowerCase();
+  const list=db.condutores.filter(c=>[c.nome,c.cpf,c.matricula].some(x=>(x||'').toLowerCase().includes(q)));
+  const tb=document.getElementById('tb-condutores');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty-state"><div class="ei">👤</div>Nenhum condutor cadastrado</div></td></tr>`;return;}
+  tb.innerHTML=list.map(c=>`<tr>
+    <td><strong>${c.nome}</strong></td>
+    <td>${c.cpf||'—'}</td>
+    <td>${c.cnh||'—'}</td>
+    <td><span class="badge badge-blue">${c.matricula}</span></td>
+    <td>${c.admissao?fmtDate(c.admissao):'—'}</td>
+    <td>${c.tel||'—'}</td>
+    <td class="actions-col">
+      <button class="btn btn-edit btn-sm" onclick="editCondutor('${c.id}')">✏️ Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCondutor('${c.id}')">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+
+// ========================
+// MOTOS
+// ========================
+function clearMoto(){
+  ['m-id','m-placa','m-modelo','m-locadora','m-retirada','m-devolucao','m-km','m-ultima-manut','m-regiao','m-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-status').value='ativa';
+  document.getElementById('m-matricula').value='';
+}
+function openNewMoto(){
+  clearMoto();
+  document.getElementById('modal-moto-title').textContent='Nova Moto';
+  populateMatriculaSelect('m-matricula');
+  openModal('modal-moto');
+}
+function populateMatriculaSelect(selId, selected=''){
+  const sel=document.getElementById(selId);
+  sel.innerHTML='<option value="">-- Selecionar --</option>'+db.condutores.map(c=>`<option value="${c.matricula}" ${c.matricula===selected?'selected':''}>${c.matricula} — ${c.nome}</option>`).join('');
+}
+function saveMoto(){
+  const placa=document.getElementById('m-placa').value.trim().toUpperCase();
+  if(!placa){alert('Placa é obrigatória.');return;}
+  const id=document.getElementById('m-id').value||uid();
+  const mat=document.getElementById('m-matricula').value;
+  const cond=db.condutores.find(c=>c.matricula===mat);
+  const obj={id,placa,modelo:document.getElementById('m-modelo').value,locadora:document.getElementById('m-locadora').value,matricula:mat,condutor:cond?cond.nome:'',retirada:document.getElementById('m-retirada').value,devolucao:document.getElementById('m-devolucao').value,km:document.getElementById('m-km').value,ultimaManut:document.getElementById('m-ultima-manut').value,status:document.getElementById('m-status').value,regiao:document.getElementById('m-regiao').value,obs:document.getElementById('m-obs').value,paradaSince:document.getElementById('m-status').value==='parada'?new Date().toISOString():null};
+  const idx=db.motos.findIndex(m=>m.id===id);
+  if(idx>=0){ if(db.motos[idx].status!=='parada'&&obj.status==='parada')obj.paradaSince=new Date().toISOString(); db.motos[idx]=obj; }
+  else db.motos.push(obj);
+  save('motos');
+  closeModal('modal-moto');
+  renderMotos();
+}
+function editMoto(id){
+  const m=db.motos.find(x=>x.id===id);
+  if(!m)return;
+  document.getElementById('modal-moto-title').textContent='Editar Moto';
+  document.getElementById('m-id').value=m.id;
+  document.getElementById('m-placa').value=m.placa;
+  document.getElementById('m-modelo').value=m.modelo;
+  document.getElementById('m-locadora').value=m.locadora;
+  document.getElementById('m-retirada').value=m.retirada;
+  document.getElementById('m-devolucao').value=m.devolucao;
+  document.getElementById('m-km').value=m.km;
+  document.getElementById('m-ultima-manut').value=m.ultimaManut;
+  document.getElementById('m-status').value=m.status;
+  document.getElementById('m-regiao').value=m.regiao;
+  document.getElementById('m-obs').value=m.obs;
+  populateMatriculaSelect('m-matricula', m.matricula);
+  openModal('modal-moto');
+}
+function deleteMoto(id){ if(confirm('Excluir esta moto?')){ db.motos=db.motos.filter(m=>m.id!==id); save('motos'); renderMotos(); } }
+function statusBadge(s){
+  const map={ativa:'badge-green',parada:'badge-red',manutencao:'badge-yellow',reserva:'badge-blue'};
+  const labels={ativa:'Ativa',parada:'Parada',manutencao:'Manutenção',reserva:'Reserva'};
+  return `<span class="badge ${map[s]||'badge-gray'}">${labels[s]||s}</span>`;
+}
+function renderMotos(){
+  const q=(document.getElementById('search-moto').value||'').toLowerCase();
+  const list=db.motos.filter(m=>[m.placa,m.modelo,m.condutor].some(x=>(x||'').toLowerCase().includes(q)));
+  const tb=document.getElementById('tb-motos');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="9"><div class="empty-state"><div class="ei">🏍️</div>Nenhuma moto cadastrada</div></td></tr>`;return;}
+  tb.innerHTML=list.map(m=>`<tr>
+    <td><strong>${m.placa}</strong></td>
+    <td>${m.modelo||'—'}</td>
+    <td>${m.locadora||'—'}</td>
+    <td>${m.condutor||'—'}</td>
+    <td>${m.retirada?fmtDate(m.retirada):'—'}</td>
+    <td>${m.devolucao?fmtDate(m.devolucao):'—'}</td>
+    <td>${m.km?Number(m.km).toLocaleString()+' km':'—'}</td>
+    <td>${statusBadge(m.status)}</td>
+    <td class="actions-col">
+      <button class="btn btn-edit btn-sm" onclick="editMoto('${m.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteMoto('${m.id}')">🗑️</button>
+    </td>
+  </tr>`).join('');
+}
+
+// ========================
+// AGENDAMENTOS
+// ========================
+function populatePlacaSelect(selId, selected=''){
+  const sel=document.getElementById(selId);
+  sel.innerHTML='<option value="">-- Selecionar Placa --</option>'+db.motos.map(m=>`<option value="${m.placa}" ${m.placa===selected?'selected':''}>${m.placa} — ${m.modelo}</option>`).join('');
+}
+function onAgendaPlaca(){
+  const placa=document.getElementById('ag-placa').value;
+  const moto=db.motos.find(m=>m.placa===placa);
+  document.getElementById('ag-condutor').value=moto?moto.condutor:'';
+}
+function clearAgenda(){
+  ['ag-id','ag-condutor','ag-solicitacao','ag-agendamento','ag-prazo','ag-conclusao','ag-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ag-tipo').value='manutencao';
+}
+function openNewAgendamento(){
+  clearAgenda();
+  document.getElementById('modal-agenda-title').textContent='Novo Agendamento';
+  document.getElementById('ag-solicitacao').value=new Date().toISOString().slice(0,10);
+  populatePlacaSelect('ag-placa');
+  openModal('modal-agendamento');
+}
+function saveAgendamento(){
+  const placa=document.getElementById('ag-placa').value;
+  if(!placa){alert('Selecione uma placa.');return;}
+  const id=document.getElementById('ag-id').value||uid();
+  const obj={id,placa,condutor:document.getElementById('ag-condutor').value,tipo:document.getElementById('ag-tipo').value,solicitacao:document.getElementById('ag-solicitacao').value,agendamento:document.getElementById('ag-agendamento').value,prazo:document.getElementById('ag-prazo').value,conclusao:document.getElementById('ag-conclusao').value,obs:document.getElementById('ag-obs').value,criadoEm:new Date().toISOString()};
+  const idx=db.agendamentos.findIndex(a=>a.id===id);
+  if(idx>=0)db.agendamentos[idx]=obj; else db.agendamentos.push(obj);
+  save('agendamentos');
+  closeModal('modal-agendamento');
+  renderAgendamentos();
+  renderAgendaStats();
+}
+function editAgendamento(id){
+  const a=db.agendamentos.find(x=>x.id===id);
+  if(!a)return;
+  document.getElementById('modal-agenda-title').textContent='Editar Agendamento';
+  document.getElementById('ag-id').value=a.id;
+  document.getElementById('ag-condutor').value=a.condutor;
+  document.getElementById('ag-solicitacao').value=a.solicitacao;
+  document.getElementById('ag-agendamento').value=a.agendamento;
+  document.getElementById('ag-prazo').value=a.prazo;
+  document.getElementById('ag-conclusao').value=a.conclusao;
+  document.getElementById('ag-obs').value=a.obs;
+  document.getElementById('ag-tipo').value=a.tipo;
+  populatePlacaSelect('ag-placa', a.placa);
+  openModal('modal-agendamento');
+}
+function deleteAgendamento(id){ if(confirm('Excluir agendamento?')){ db.agendamentos=db.agendamentos.filter(a=>a.id!==id); save('agendamentos'); renderAgendamentos(); renderAgendaStats(); } }
+function calcSLA(inicio, fim){
+  if(!inicio)return null;
+  const s=new Date(inicio); const e=fim?new Date(fim):new Date();
+  const diff=Math.max(0, e-s);
+  const hrs=Math.floor(diff/3600000);
+  const mins=Math.floor((diff%3600000)/60000);
+  return `${hrs}h ${mins}m`;
+}
+function tipoAgendaBadge(t){
+  const map={manutencao:['badge-yellow','🔧 Manutenção'],guincho:['badge-red','🚛 Guincho'],revisao:['badge-blue','🔍 Revisão'],sinistro:['badge-purple','⚠️ Sinistro'],outro:['badge-gray','📋 Outro']};
+  const [cls,lbl]=map[t]||['badge-gray',t];
+  return `<span class="badge ${cls}">${lbl}</span>`;
+}
+function renderAgendamentos(){
+  const q=(document.getElementById('search-agenda').value||'').toLowerCase();
+  const list=db.agendamentos.filter(a=>[a.placa,a.condutor].some(x=>(x||'').toLowerCase().includes(q)));
+  const tb=document.getElementById('tb-agendamentos');
+  if(!list.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty-state"><div class="ei">📅</div>Nenhum agendamento registrado</div></td></tr>`;return;}
+  tb.innerHTML=list.map(a=>{
+    const pronto=!!a.conclusao;
+    const sla=pronto?calcSLA(a.solicitacao,a.conclusao):calcSLA(a.solicitacao,null);
+    const statusBadgeHTML=pronto?`<span class="badge badge-green">✅ Pronto</span>`:`<span class="badge badge-yellow">⏳ Em Andamento</span>`;
+    const slaBadge=sla?`<span style="font-size:12px;color:var(--text2);">${sla}</span>`:'—';
+    return `<tr>
+      <td><strong>${a.placa}</strong></td>
+      <td>${a.condutor||'—'}</td>
+      <td>${tipoAgendaBadge(a.tipo)}</td>
+      <td>${a.solicitacao?fmtDate(a.solicitacao):'—'}</td>
+      <td>${a.agendamento?fmtDate(a.agendamento):'—'}</td>
+      <td>${a.prazo?fmtDate(a.prazo):'—'}</td>
+      <td>${a.conclusao?fmtDate(a.conclusao):'—'}</td>
+      <td>${slaBadge}</td>
+      <td>${statusBadgeHTML}</td>
+      <td class="actions-col">
+        <button class="btn btn-edit btn-sm" onclick="editAgendamento('${a.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAgendamento('${a.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function renderAgendaStats(){
+  const total=db.agendamentos.length;
+  const emAndamento=db.agendamentos.filter(a=>!a.conclusao).length;
+  const prontos=db.agendamentos.filter(a=>!!a.conclusao).length;
+  const guincho=db.agendamentos.filter(a=>a.tipo==='guincho'&&!a.conclusao).length;
+  const sinistro=db.agendamentos.filter(a=>a.tipo==='sinistro'&&!a.conclusao).length;
+  document.getElementById('agenda-stats').innerHTML=`
+    <div class="stat-card blue"><div class="stat-icon">📅</div><div class="card-title">Total</div><div class="stat-number">${total}</div><div class="stat-label">Agendamentos</div></div>
+    <div class="stat-card yellow"><div class="stat-icon">⏳</div><div class="card-title">Em Andamento</div><div class="stat-number">${emAndamento}</div><div class="stat-label">Aguardando conclusão</div></div>
+    <div class="stat-card green"><div class="stat-icon">✅</div><div class="card-title">Concluídos</div><div class="stat-number">${prontos}</div><div class="stat-label">Finalizados</div></div>
+    <div class="stat-card red"><div class="stat-icon">🚛</div><div class="card-title">Guincho</div><div class="stat-number">${guincho}</div><div class="stat-label">Ativos</div></div>
+    <div class="stat-card purple"><div class="stat-icon">⚠️</div><div class="card-title">Sinistro</div><div class="stat-number">${sinistro}</div><div class="stat-label">Ativos</div></div>
+  `;
+}
+
+// ========================
+// MANUTENÇÃO
+// ========================
+function onManutPlaca(){
+  const placa=document.getElementById('mn-placa').value;
+  const moto=db.motos.find(m=>m.placa===placa);
+  document.getElementById('mn-condutor').value=moto?moto.condutor:'';
+  document.getElementById('mn-km').value=moto?moto.km:'';
+}
+function openNewManutencao(){
+  document.getElementById('mn-id').value='';
+  document.getElementById('mn-condutor').value='';
+  document.getElementById('mn-km').value='';
+  document.getElementById('mn-obs').value='';
+  document.getElementById('mn-data').value=new Date().toISOString().slice(0,10);
+  editingManutItems=[{desc:'',valor:''}];
+  populatePlacaSelect('mn-placa');
+  renderManutItems();
+  document.getElementById('modal-manut-title').textContent='Registro de Manutenção';
+  openModal('modal-manutencao');
+}
+function addManutItem(){ editingManutItems.push({desc:'',valor:''}); renderManutItems(); }
+function removeManutItem(i){ editingManutItems.splice(i,1); renderManutItems(); }
+function renderManutItems(){
+  const div=document.getElementById('mn-itens-list');
+  div.innerHTML=editingManutItems.map((item,i)=>`
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:8px;align-items:center">
+      <input type="text" value="${item.desc}" placeholder="Descrição do item/serviço" oninput="editingManutItems[${i}].desc=this.value" style="padding:9px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;">
+      <input type="number" value="${item.valor}" placeholder="R$ 0,00" oninput="editingManutItems[${i}].valor=this.value;calcManutTotal()" style="width:130px;padding:9px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;">
+      <button class="btn btn-danger btn-sm" onclick="removeManutItem(${i})">✕</button>
+    </div>
+  `).join('');
+  calcManutTotal();
+}
+function calcManutTotal(){
+  const total=editingManutItems.reduce((s,i)=>s+parseFloat(i.valor||0),0);
+  document.getElementById('mn-total').textContent=fmtBRL(total);
+}
+function saveManutencao(){
+  const placa=document.getElementById('mn-placa').value;
+  if(!placa){alert('Selecione uma placa.');return;}
+  const id=document.getElementById('mn-id').value||uid();
+  const itens=editingManutItems.filter(i=>i.desc);
+  const total=itens.reduce((s,i)=>s+parseFloat(i.valor||0),0);
+  const obj={id,placa,condutor:document.getElementById('mn-condutor').value,data:document.getElementById('mn-data').value,km:document.getElementById('mn-km').value,itens,total,obs:document.getElementById('mn-obs').value};
+  // Update moto ultima manut
+  const moto=db.motos.find(m=>m.placa===placa);
+  if(moto){ moto.ultimaManut=obj.km; save('motos'); }
+  const idx=db.manutencoes.findIndex(m=>m.id===id);
+  if(idx>=0)db.manutencoes[idx]=obj; else db.manutencoes.push(obj);
+  save('manutencoes');
+  closeModal('modal-manutencao');
+  renderHistorico();
+  renderRecentMaint();
+}
+function renderHistorico(){
+  const placa=(document.getElementById('hist-placa').value||'').toUpperCase().trim();
+  const div=document.getElementById('hist-list');
+  const list=placa?db.manutencoes.filter(m=>m.placa===placa):[];
+  if(!placa){div.innerHTML='<div style="color:var(--text3);font-size:13px">Digite uma placa para ver o histórico</div>';return;}
+  if(!list.length){div.innerHTML=`<div class="empty-state"><div class="ei">🔧</div>Nenhuma manutenção para ${placa}</div>`;return;}
+  div.innerHTML=list.sort((a,b)=>new Date(b.data)-new Date(a.data)).map(m=>`
+    <div class="hist-item">
+      <div class="hist-header">
+        <strong>📅 ${m.data?fmtDate(m.data):'—'} — ${m.km?m.km+' km':'sem km'}</strong>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-edit btn-sm" onclick="editManutencao('${m.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteManutencao('${m.id}')">🗑️</button>
+        </div>
+      </div>
+      <div class="hist-items-list">
+        ${m.itens.map(i=>`<div class="hi"><span>${i.desc}</span><span>${fmtBRL(i.valor)}</span></div>`).join('')}
+        <div class="hist-total"><span>Total</span><span>${fmtBRL(m.total)}</span></div>
+      </div>
+      ${m.obs?`<div style="font-size:12px;color:var(--text3);margin-top:6px">📝 ${m.obs}</div>`:''}
+    </div>
+  `).join('');
+}
+function renderRecentMaint(){
+  const div=document.getElementById('recent-maint');
+  const list=[...db.manutencoes].sort((a,b)=>new Date(b.data)-new Date(a.data)).slice(0,8);
+  if(!list.length){div.innerHTML='<div class="empty-state"><div class="ei">🔧</div>Nenhuma manutenção registrada</div>';return;}
+  div.innerHTML=list.map(m=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(42,51,86,0.5)">
+      <div>
+        <strong style="font-size:14px">${m.placa}</strong>
+        <div style="font-size:12px;color:var(--text3)">${m.data?fmtDate(m.data):'—'} ${m.km?'· '+m.km+' km':''}</div>
+      </div>
+      <span style="font-weight:600;color:var(--accent)">${fmtBRL(m.total)}</span>
+    </div>
+  `).join('');
+}
+function editManutencao(id){
+  const m=db.manutencoes.find(x=>x.id===id);
+  if(!m)return;
+  document.getElementById('mn-id').value=m.id;
+  populatePlacaSelect('mn-placa', m.placa);
+  document.getElementById('mn-condutor').value=m.condutor;
+  document.getElementById('mn-data').value=m.data;
+  document.getElementById('mn-km').value=m.km;
+  document.getElementById('mn-obs').value=m.obs;
+  editingManutItems=[...m.itens.map(i=>({...i}))];
+  if(!editingManutItems.length)editingManutItems.push({desc:'',valor:''});
+  renderManutItems();
+  document.getElementById('modal-manut-title').textContent='Editar Manutenção';
+  openModal('modal-manutencao');
+}
+function deleteManutencao(id){ if(confirm('Excluir esta manutenção?')){ db.manutencoes=db.manutencoes.filter(m=>m.id!==id); save('manutencoes'); renderHistorico(); renderRecentMaint(); } }
+
+// ========================
+// DASHBOARD
+// ========================
+function updateDashboard(){
+  const total=db.motos.length;
+  const ativas=db.motos.filter(m=>m.status==='ativa').length;
+  const paradas=db.motos.filter(m=>m.status==='parada').length;
+  const manut=db.motos.filter(m=>m.status==='manutencao').length;
+  const reserva=db.motos.filter(m=>m.status==='reserva').length;
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card green"><div class="stat-icon">✅</div><div class="card-title">Motos Ativas</div><div class="stat-number" style="color:var(--green)">${ativas}</div><div class="stat-label">de ${total} veículos</div></div>
+    <div class="stat-card red"><div class="stat-icon">🚫</div><div class="card-title">Motos Paradas</div><div class="stat-number" style="color:var(--red)">${paradas}</div><div class="stat-label">indisponíveis</div></div>
+    <div class="stat-card yellow"><div class="stat-icon">🔧</div><div class="card-title">Em Manutenção</div><div class="stat-number" style="color:var(--yellow)">${manut}</div><div class="stat-label">em serviço</div></div>
+    <div class="stat-card blue"><div class="stat-icon">📦</div><div class="card-title">Reserva</div><div class="stat-number" style="color:var(--blue)">${reserva}</div><div class="stat-label">disponíveis</div></div>
+    <div class="stat-card purple"><div class="stat-icon">📋</div><div class="card-title">Agendamentos</div><div class="stat-number" style="color:var(--purple)">${db.agendamentos.filter(a=>!a.conclusao).length}</div><div class="stat-label">em aberto</div></div>
+  `;
+  // SLA paradas
+  const slaDiv=document.getElementById('sla-list');
+  const paradasList=db.motos.filter(m=>m.status==='parada');
+  if(!paradasList.length){slaDiv.innerHTML='<div class="empty-state" style="padding:16px"><div class="ei">✅</div>Nenhuma moto parada</div>';} else {
+    slaDiv.innerHTML=paradasList.map(m=>{
+      const since=m.paradaSince?new Date(m.paradaSince):new Date();
+      const hrs=Math.floor((new Date()-since)/3600000);
+      const pct=Math.min(100,hrs/72*100);
+      const cls=pct<50?'sla-ok':pct<80?'sla-warn':'sla-crit';
+      return `<div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+          <span><strong>${m.placa}</strong> — ${m.modelo||'—'} <span style="color:var(--text3)">${m.regiao||''}</span></span>
+          <span style="color:var(--red)">${hrs}h parada</span>
+        </div>
+        <div class="sla-bar ${cls}"><div class="sla-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+  // Manutenções ativas
+  const maintDiv=document.getElementById('maint-active-list');
+  const mList=db.motos.filter(m=>m.status==='manutencao');
+  if(!mList.length){maintDiv.innerHTML='<div class="empty-state" style="padding:16px"><div class="ei">✅</div>Nenhuma em manutenção</div>';} else {
+    maintDiv.innerHTML=mList.map(m=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(42,51,86,0.5)">
+        <div>
+          <strong>${m.placa}</strong> <span style="font-size:12px;color:var(--text3)">${m.modelo||''}</span>
+          <div style="font-size:12px;color:var(--text3)">${m.condutor||'—'} · ${m.regiao||'—'}</div>
+        </div>
+        <span class="badge badge-yellow">🔧 Manutenção</span>
+      </div>
+    `).join('');
+  }
+}
+
+// ========================
+// MAP — Leaflet + OpenStreetMap
+// ========================
+let leafletMap = null;
+let mapMarkers = [];
+
+const cityCoords = {
+  'SP': [-23.5505, -46.6333], 'RJ': [-22.9068, -43.1729],
+  'MG': [-19.9167, -43.9345], 'BA': [-12.9714, -38.5014],
+  'CE': [-3.7172, -38.5433], 'PE': [-8.0476, -34.8770],
+  'AM': [-3.1190, -60.0217], 'RS': [-30.0346, -51.2177],
+  'PR': [-25.4284, -49.2733], 'GO': [-16.6869, -49.2648],
+  'PA': [-1.4558, -48.5044], 'DF': [-15.7801, -47.9292],
+  'MT': [-15.5989, -56.0949], 'MS': [-20.4428, -54.6462],
+  'RN': [-5.7945, -35.2110], 'AL': [-9.6658, -35.7350],
+  'PI': [-5.0892, -42.8019], 'PB': [-7.1195, -34.8450],
+  'SE': [-10.9472, -37.0731], 'ES': [-20.3155, -40.3128],
+  'SC': [-27.5954, -48.5480], 'MA': [-2.5297, -44.3028],
+  'RO': [-8.7612, -63.9004], 'AC': [-9.9754, -67.8249],
+  'AP': [0.0349, -51.0694], 'RR': [2.8199, -60.6714],
+  'TO': [-10.1753, -48.2982],
+};
+
+function getCoordFromRegiao(regiao) {
+  if (!regiao) return null;
+  const upper = regiao.toUpperCase();
+  for (const uf in cityCoords) {
+    if (upper.includes(' ' + uf) || upper.includes('-' + uf) || upper.includes('/' + uf) || upper.endsWith(uf)) {
+      return cityCoords[uf];
+    }
+  }
+  // try city name matching
+  const cityMap = {
+    'SÃO PAULO': [-23.5505, -46.6333], 'SAO PAULO': [-23.5505, -46.6333],
+    'RIO DE JANEIRO': [-22.9068, -43.1729], 'BELO HORIZONTE': [-19.9167, -43.9345],
+    'SALVADOR': [-12.9714, -38.5014], 'FORTALEZA': [-3.7172, -38.5433],
+    'RECIFE': [-8.0476, -34.8770], 'MANAUS': [-3.1190, -60.0217],
+    'PORTO ALEGRE': [-30.0346, -51.2177], 'CURITIBA': [-25.4284, -49.2733],
+    'GOIÂNIA': [-16.6869, -49.2648], 'GOIANIA': [-16.6869, -49.2648],
+    'BELÉM': [-1.4558, -48.5044], 'BELEM': [-1.4558, -48.5044],
+    'BRASÍLIA': [-15.7801, -47.9292], 'BRASILIA': [-15.7801, -47.9292],
+    'CUIABÁ': [-15.5989, -56.0949], 'CUIABA': [-15.5989, -56.0949],
+    'CAMPO GRANDE': [-20.4428, -54.6462], 'NATAL': [-5.7945, -35.2110],
+    'MACEIÓ': [-9.6658, -35.7350], 'MACEIO': [-9.6658, -35.7350],
+    'TERESINA': [-5.0892, -42.8019], 'JOÃO PESSOA': [-7.1195, -34.8450],
+    'JOAO PESSOA': [-7.1195, -34.8450], 'ARACAJU': [-10.9472, -37.0731],
+    'VITÓRIA': [-20.3155, -40.3128], 'VITORIA': [-20.3155, -40.3128],
+    'FLORIANÓPOLIS': [-27.5954, -48.5480], 'FLORIANOPOLIS': [-27.5954, -48.5480],
+    'SÃO LUÍS': [-2.5297, -44.3028], 'SAO LUIS': [-2.5297, -44.3028],
+    'PORTO VELHO': [-8.7612, -63.9004], 'RIO BRANCO': [-9.9754, -67.8249],
+    'MACAPÁ': [0.0349, -51.0694], 'MACAPA': [0.0349, -51.0694],
+    'BOA VISTA': [2.8199, -60.6714], 'PALMAS': [-10.1753, -48.2982],
+  };
+  for (const city in cityMap) {
+    if (upper.includes(city)) return cityMap[city];
+  }
+  return null;
+}
+
+function makeDivIcon(color) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:16px;height:16px;border-radius:50%;
+      background:${color};border:2px solid #0a0d14;
+      box-shadow:0 0 8px ${color}88;
+      cursor:pointer;
+    "></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -12],
+  });
+}
+
+function renderMap() {
+  if (!leafletMap) {
+    leafletMap = L.map('leaflet-map', {
+      center: [-14.2350, -51.9253],
+      zoom: 4,
+      zoomControl: true,
+      scrollWheelZoom: true,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 18,
+    }).addTo(leafletMap);
+  }
+
+  // Clear old markers
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+
+  const statusColors = { ativa: '#22c55e', parada: '#ef4444', manutencao: '#eab308', reserva: '#3b82f6' };
+
+  // Group motos by region coord
+  const groups = {};
+  db.motos.forEach(moto => {
+    const coord = getCoordFromRegiao(moto.regiao);
+    if (!coord) return;
+    const key = coord.join(',');
+    if (!groups[key]) groups[key] = { coord, motos: [] };
+    groups[key].motos.push(moto);
+  });
+
+  Object.values(groups).forEach(group => {
+    const { coord, motos } = group;
+    motos.forEach((moto, i) => {
+      const color = statusColors[moto.status] || '#94a3b8';
+      // Slight offset if multiple motos in same spot
+      const offsetLat = motos.length > 1 ? (i - (motos.length-1)/2) * 0.18 : 0;
+      const offsetLng = motos.length > 1 ? (i % 2 === 0 ? 0.12 : -0.12) : 0;
+      const latlng = [coord[0] + offsetLat, coord[1] + offsetLng];
+
+      const marker = L.marker(latlng, { icon: makeDivIcon(color) });
+
+      const statusLabels = { ativa: '✅ Ativa', parada: '🚫 Parada', manutencao: '🔧 Manutenção', reserva: '📦 Reserva' };
+      const popupHTML = `
+        <h4>🏍️ ${moto.placa}</h4>
+        <div class="pr"><span>Modelo</span><span>${moto.modelo || '—'}</span></div>
+        <div class="pr"><span>Condutor</span><span>${moto.condutor || '—'}</span></div>
+        <div class="pr"><span>Região</span><span>${moto.regiao || '—'}</span></div>
+        <div class="pr"><span>Última Manutenção</span><span>${moto.ultimaManut ? moto.ultimaManut + ' km' : '—'}</span></div>
+        <div class="pr"><span>KM Atual</span><span>${moto.km ? Number(moto.km).toLocaleString() + ' km' : '—'}</span></div>
+        <div class="pr"><span>Status</span><span style="color:${color};font-weight:600">${statusLabels[moto.status] || moto.status}</span></div>
+        ${moto.obs ? `<div style="margin-top:8px;font-size:12px;color:#64748b;border-top:1px solid #2a3356;padding-top:8px">📝 ${moto.obs}</div>` : ''}
+      `;
+      marker.bindPopup(popupHTML, { maxWidth: 280 });
+      marker.addTo(leafletMap);
+      mapMarkers.push(marker);
+    });
+  });
+
+  // Invalidate size in case tab was hidden
+  setTimeout(() => leafletMap.invalidateSize(), 100);
+}
+
+// ========================
+// HELPERS
+// ========================
+function fmtDate(d){
+  if(!d)return '—';
+  const [y,m,dy]=d.split('-');
+  return `${dy}/${m}/${y}`;
+}
+
+// ========================
+// INIT
+// ========================
+function init(){
+  load();
+  loadSampleData();
+  updateDashboard();
+  renderMotos();
+  renderCondutores();
+  renderAgendamentos();
+  renderAgendaStats();
+  renderRecentMaint();
+}
+function loadSampleData(){
+  if(db.condutores.length)return;
+  const cond=[
+    {id:uid(),nome:'João Silva',cpf:'123.456.789-00',cnh:'12345678',matricula:'MAT001',admissao:'2022-03-15',tel:'(11) 99999-0001',email:'joao@email.com',endereco:'Rua A, 100 - São Paulo/SP'},
+    {id:uid(),nome:'Maria Souza',cpf:'987.654.321-00',cnh:'87654321',matricula:'MAT002',admissao:'2021-07-01',tel:'(21) 98888-0002',email:'maria@email.com',endereco:'Av B, 200 - Rio de Janeiro/RJ'},
+    {id:uid(),nome:'Carlos Oliveira',cpf:'111.222.333-44',cnh:'11223344',matricula:'MAT003',admissao:'2023-01-10',tel:'(71) 97777-0003',email:'carlos@email.com',endereco:'Rua C, 300 - Salvador/BA'},
+  ];
+  const motos=[
+    {id:uid(),placa:'ABC1D23',modelo:'Honda CG 160',locadora:'LocaFácil',matricula:'MAT001',condutor:'João Silva',retirada:'2024-01-10',devolucao:'2025-01-10',km:'32000',ultimaManut:'30000',status:'ativa',regiao:'São Paulo - SP',obs:'Moto em ótimas condições',paradaSince:null},
+    {id:uid(),placa:'XYZ9A87',modelo:'Yamaha Factor 150',locadora:'MotoRent',matricula:'MAT002',condutor:'Maria Souza',retirada:'2024-03-01',devolucao:'2025-03-01',km:'18500',ultimaManut:'15000',status:'manutencao',regiao:'Rio de Janeiro - RJ',obs:'Aguardando troca de corrente',paradaSince:null},
+    {id:uid(),placa:'DEF5B67',modelo:'Honda Biz 125',locadora:'LocaFácil',matricula:'MAT003',condutor:'Carlos Oliveira',retirada:'2024-05-15',devolucao:'2025-05-15',km:'9800',ultimaManut:'9000',status:'parada',regiao:'Salvador - BA',obs:'Pneu furado',paradaSince:new Date(Date.now()-86400000*2).toISOString()},
+    {id:uid(),placa:'GHI3C45',modelo:'Suzuki Yes 125',locadora:'BikeFleet',matricula:'',condutor:'',retirada:'',devolucao:'',km:'45000',ultimaManut:'40000',status:'reserva',regiao:'Brasília - DF',obs:'Reserva disponível'},
+  ];
+  const agendas=[
+    {id:uid(),placa:'XYZ9A87',condutor:'Maria Souza',tipo:'manutencao',solicitacao:'2024-11-01',agendamento:'2024-11-05',prazo:'2024-11-10',conclusao:'',obs:'Troca de corrente e revisão geral',criadoEm:new Date().toISOString()},
+    {id:uid(),placa:'DEF5B67',condutor:'Carlos Oliveira',tipo:'guincho',solicitacao:'2024-11-03',agendamento:'2024-11-03',prazo:'2024-11-04',conclusao:'2024-11-04',obs:'Pneu furado, guincho solicitado',criadoEm:new Date().toISOString()},
+  ];
+  const manut=[
+    {id:uid(),placa:'ABC1D23',condutor:'João Silva',data:'2024-10-15',km:'30000',itens:[{desc:'Troca de óleo',valor:'150'},{desc:'Filtro de ar',valor:'45'},{desc:'Velas de ignição',valor:'60'}],total:255,obs:'Revisão dos 30.000 km'},
+  ];
+  db.condutores=cond; db.motos=motos; db.agendamentos=agendas; db.manutencoes=manut;
+  save('condutores'); save('motos'); save('agendamentos'); save('manutencoes');
+}
+
+// Override openNewCondutor trigger
+document.querySelector('[onclick="openModal(\'modal-condutor\')"]').onclick=function(){ clearCondutor(); document.getElementById('modal-condutor-title').textContent='Novo Condutor'; openModal('modal-condutor'); };
+document.querySelector('[onclick="openModal(\'modal-moto\')"]').onclick=function(){ openNewMoto(); };
+document.querySelector('[onclick="openModal(\'modal-agendamento\')"]').onclick=function(){ openNewAgendamento(); };
+document.querySelector('[onclick="openModal(\'modal-manutencao\')"]').onclick=function(){ openNewManutencao(); };
+</script>
+</body>
+</html>
